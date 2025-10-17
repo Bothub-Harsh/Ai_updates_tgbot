@@ -37,7 +37,7 @@ posted_links = set()
 # ---------- FUNCTIONS ----------
 def summarize_text(text):
     try:
-        prompt = f"Summarize this AI news in 2 engaging lines with emojis, highlight the main point:\n{text}"
+        prompt = f"Summarize this AI news in 2 short, engaging lines with emojis:\n{text}"
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role":"user","content":prompt}],
@@ -45,7 +45,7 @@ def summarize_text(text):
         )
         return response.choices[0].message.content.strip()
     except:
-        return text[:200]+"..."
+        return text[:200] + "..."
 
 def get_image_from_article(url):
     try:
@@ -88,11 +88,5 @@ def fetch_and_post_news():
                 print("⚠️ Telegram post error:", e)
 
 def run_bot():
-    print("🚀 AI News Bot running on Render 24/7...")
-    while True:
-        fetch_and_post_news()
-        print(f"⏰ Checked at {datetime.now().strftime('%H:%M:%S')}")
-        time.sleep(3600)
-
-if __name__ == "__main__":
-    run_bot()
+    print("🚀 AI News Bot running on Pella 24/7...")
+    while
