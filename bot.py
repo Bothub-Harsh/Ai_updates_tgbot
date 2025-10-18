@@ -7,40 +7,36 @@ import openai
 import random
 import time
 
-# =============== CONFIG ===============
-BOT_TOKEN = os.getenv("BOT_TOKEN")              # Telegram bot token
-CHANNEL_ID = os.getenv("CHANNEL_ID")            # Your channel username (e.g. "@ainewsfeed")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    # OpenAI API key
+# --- Config ---
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
-# AI news RSS feeds
+bot = Bot(token=BOT_TOKEN)
+posted_links = set()
+
 RSS_FEEDS = [
     "https://www.artificialintelligence-news.com/feed/",
     "https://venturebeat.com/category/ai/feed/",
     "https://www.theverge.com/artificial-intelligence/rss/index.xml",
 ]
 
-bot = Bot(token=BOT_TOKEN)
-posted_links = set()  # to prevent duplicates
-
-# =============== GET NEWS ===============
 def get_latest_articles():
     articles = []
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
-        for entry in feed.entries[:3]:
-            link = entry.link
-            if link not in posted_links:
+        for entry in feed.entries[:2]:
+            if entry.link not in posted_links:
                 articles.append({
                     "title": entry.title,
                     "summary": getattr(entry, "summary", ""),
-                    "link": link,
+                    "link": entry.link,
                 })
     return articles
 
-# =============== SUMMARIZE ===============
-def summarize_text(text):
-    prompt = f"Summarize this AI news in 2 short lines with emojis and key points:\n\n{text}"
+def summarize(text):
+    prompt = f"Summarize this AI news in 2 lines with emojis:\n\n{text}"
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
@@ -51,7 +47,6 @@ def summarize_text(text):
         print("Summarization error:", e)
         return text[:150] + "..."
 
-# =============== FIND IMAGE ===============
 def find_image(url):
     try:
         html = requests.get(url, timeout=8).text
@@ -61,20 +56,17 @@ def find_image(url):
             return img["src"]
     except:
         pass
-    keywords = ["AI", "robot", "neural network", "technology", "machine learning"]
+    keywords = ["AI", "robot", "neural network", "machine learning"]
     return f"https://source.unsplash.com/600x400/?{random.choice(keywords)}"
 
-# =============== POST TO TELEGRAM ===============
-def post_article(article):
-    summary = summarize_text(article["summary"] or article["title"])
+def post_to_telegram(article):
+    summary = summarize(article["summary"] or article["title"])
     image_url = find_image(article["link"])
-
     message = (
         f"📰 *{article['title']}*\n\n"
         f"{summary}\n\n"
         f"🔗 [Read full article]({article['link']})"
     )
-
     try:
         bot.send_photo(
             chat_id=CHANNEL_ID,
@@ -87,20 +79,18 @@ def post_article(article):
     except Exception as e:
         print("❌ Telegram post error:", e)
 
-# =============== MAIN LOOP ===============
 def main():
-    print("🤖 AI News Bot started...")
+    print("🤖 Bot started successfully — running on Render...")
     while True:
         try:
             articles = get_latest_articles()
             for article in articles:
-                post_article(article)
-                time.sleep(10)  # avoid Telegram spam limit
+                post_to_telegram(article)
+                time.sleep(10)
         except Exception as e:
             print("⚠️ Error:", e)
 
-        # check for new news every hour
-        print("⏳ Waiting 1 hour for next update...")
+        print("🕒 Waiting 1 hour for next check...")
         time.sleep(3600)
 
 if __name__ == "__main__":
