@@ -9,10 +9,9 @@ from telegram import Bot
 import random
 
 # ---------- ENV VARIABLES ----------
-OPENAI_API_KEY = os.environ.get("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")
-TELEGRAM_BOT_TOKEN = os.environ.get("7966973427:AAGB3IoKOwvIyqQIFG03i98R_ujaZ-TjYW0")
-TELEGRAM_CHANNEL_ID = os.environ.get("-1002918596371")
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID")
 # ---------- RSS FEEDS ----------
 RSS_FEEDS = [
     "https://techcrunch.com/tag/artificial-intelligence/feed/",
