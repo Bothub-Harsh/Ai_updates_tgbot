@@ -7,11 +7,13 @@ from datetime import datetime
 from openai import OpenAI
 from telegram import Bot
 import random
+from flask import Flask
 
 # ---------- ENV VARIABLES ----------
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID")
+
 # ---------- RSS FEEDS ----------
 RSS_FEEDS = [
     "https://techcrunch.com/tag/artificial-intelligence/feed/",
@@ -34,87 +36,74 @@ posted_links = set()
 
 # ---------- FUNCTIONS ----------
 def summarize_text(text):
-    """Summarize the article text using OpenAI GPT model"""
     try:
-        prompt = f"Summarize this AI news in 2 short, engaging lines with emojis. Keep it factual and exciting:\n{text}"
+        prompt = f"Summarize this AI news in 2 short, engaging lines with emojis:\n{text}"
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role":"user","content":prompt}],
             temperature=0.7
         )
-        summary = response.choices[0].message.content.strip()
-        return summary if summary else text[:200] + "..."
-    except Exception as e:
-        print("⚠️ OpenAI error:", e)
+        return response.choices[0].message.content.strip()
+    except:
         return text[:200] + "..."
 
 def get_image_from_article(url):
-    """Extract image from article or use fallback"""
     try:
         html = requests.get(url, timeout=10).text
         soup = BeautifulSoup(html, "html.parser")
-
-        # Try to get OpenGraph or Twitter card image
         for tag in ["og:image", "twitter:image"]:
             img_tag = soup.find("meta", property=tag)
             if img_tag and img_tag.get("content"):
-                img_url = img_tag["content"]
-                if img_url.startswith("//"):
-                    img_url = "https:" + img_url
-                return img_url
-
-        # fallback: first image tag
+                return img_tag["content"]
         img = soup.find("img")
         if img and img.get("src"):
-            img_url = img["src"]
-            if img_url.startswith("//"):
-                img_url = "https:" + img_url
-            return img_url
-
-    except Exception as e:
-        print("⚠️ Image fetch error:", e)
-
-    # fallback random AI image
+            return img["src"]
+    except:
+        pass
     return random.choice(FALLBACK_IMAGES)
 
 def fetch_and_post_news():
-    """Fetch news from RSS feeds and post to Telegram"""
     for feed_url in RSS_FEEDS:
-        try:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:3]:
-                title = entry.title
-                link = entry.link
-
-                if link in posted_links:
-                    continue
-
-                summary_text = entry.get("summary", title)
-                summary = summarize_text(summary_text)
-                image_url = get_image_from_article(link)
-
-                caption = f"🧠 <b>{title}</b>\n\n{summary}\n\n🔗 <a href='{link}'>Read full article</a>"
-
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:3]:
+            title = entry.title
+            link = entry.link
+            if link in posted_links:
+                continue
+            summary_text = entry.get("summary", title)
+            summary = summarize_text(summary_text)
+            image_url = get_image_from_article(link)
+            caption = f"🧠 <b>{title}</b>\n\n{summary}\n\n🔗 <a href='{link}'>Read full article</a>"
+            try:
                 bot.send_photo(
                     chat_id=TELEGRAM_CHANNEL_ID,
                     photo=image_url,
                     caption=caption,
                     parse_mode="HTML"
                 )
-
                 print(f"✅ Posted: {title}")
                 posted_links.add(link)
                 time.sleep(5)
-        except Exception as e:
-            print("⚠️ Fetch/post error:", e)
+            except Exception as e:
+                print("⚠️ Telegram post error:", e)
 
+# ---------- FLASK WEB SERVER ----------
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 AI News Bot is running on Render!"
+
+# ---------- MAIN LOOP ----------
 def run_bot():
-    """Run the bot continuously"""
-    print("🚀 AI News Bot is running 24/7...")
+    print("🚀 AI News Bot running on Render Web Service...")
     while True:
         fetch_and_post_news()
-        print(f"⏰ Checked at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        time.sleep(3600)  # every hour
+        print(f"⏰ Checked at {datetime.now().strftime('%H:%M:%S')}")
+        time.sleep(3600)  # hourly updates
 
 if __name__ == "__main__":
-    run_bot()
+    from threading import Thread
+    Thread(target=run_bot).start()
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
